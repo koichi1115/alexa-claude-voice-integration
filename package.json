@@ -1,0 +1,23 @@
+{
+  "name": "alexa-claude-voice-connector",
+  "version": "1.0.0",
+  "description": "Alexa Custom Skill for voice conversations with Anthropic Claude API",
+  "main": "lambda/src/index.js",
+  "scripts": {
+    "deploy": "ask deploy",
+    "test": "node lambda/test/test.js",
+    "lint": "eslint lambda/src/**/*.js"
+  },
+  "keywords": [
+    "alexa",
+    "claude",
+    "voice",
+    "ai",
+    "anthropic"
+  ],
+  "author": "Koichi",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+lambda/node_modules/
+
+# Build artifacts
+.ask/
+*.zip
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Secrets (never commit)
+**/secrets.json
+**/credentials.json
+
+# Unpacked docs
+unpacked_requirements/

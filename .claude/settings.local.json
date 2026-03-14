@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(example-skills:docx)",
+      "Skill(example-skills:docx:*)",
+      "Bash(pandoc:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(npm install:*)",
+      "Bash(ask deploy:*)",
+      "Bash(zip:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(Remove-Item -Force build.zip -ErrorAction SilentlyContinue)",
+      "Bash(Compress-Archive -Path node_modules, src, package.json -DestinationPath build.zip -Force)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

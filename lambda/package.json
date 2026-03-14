@@ -1,0 +1,17 @@
+{
+  "name": "alexa-claude-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for Alexa-Claude Voice Connector",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "dependencies": {
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-model": "^1.86.0",
+    "@anthropic-ai/sdk": "^0.30.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

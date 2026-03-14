@@ -1,0 +1,183 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "クロード",
+      "intents": [
+        {
+          "name": "ChatIntent",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "{query} について教えて",
+            "{query} を教えて",
+            "{query} って何",
+            "{query} とは",
+            "{query} はどう",
+            "{query} は",
+            "{query} してください",
+            "{query} お願い",
+            "{query} について",
+            "{query} 知りたい",
+            "教えて {query}",
+            "質問 {query}",
+            "聞いて {query}",
+            "調べて {query}"
+          ]
+        },
+        {
+          "name": "SwitchPersonaIntent",
+          "slots": [
+            {
+              "name": "persona",
+              "type": "PersonaType"
+            }
+          ],
+          "samples": [
+            "{persona} モード",
+            "{persona} モードにして",
+            "{persona} に切り替えて",
+            "{persona} になって"
+          ]
+        },
+        {
+          "name": "SwitchModelIntent",
+          "slots": [
+            {
+              "name": "model",
+              "type": "ModelType"
+            }
+          ],
+          "samples": [
+            "{model} に切り替えて",
+            "{model} にして",
+            "{model} モード",
+            "{model} を使って"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
+      ],
+      "types": [
+        {
+          "name": "PersonaType",
+          "values": [
+            {
+              "name": {
+                "value": "ギンさん",
+                "synonyms": [
+                  "銀さん",
+                  "ぎんさん",
+                  "銀次",
+                  "ギンジ"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "標準",
+                "synonyms": [
+                  "ノーマル",
+                  "普通",
+                  "デフォルト"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "丁寧",
+                "synonyms": [
+                  "敬語",
+                  "フォーマル"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "フレンドリー",
+                "synonyms": [
+                  "友達",
+                  "カジュアル"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ModelType",
+          "values": [
+            {
+              "name": {
+                "value": "ハイク",
+                "synonyms": [
+                  "Haiku",
+                  "はいく"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "ソネット",
+                "synonyms": [
+                  "Sonnet",
+                  "そねっと"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "dialog": {
+      "intents": [
+        {
+          "name": "ChatIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery",
+              "confirmationRequired": false,
+              "elicitationRequired": false,
+              "prompts": {}
+            }
+          ]
+        }
+      ],
+      "delegationStrategy": "ALWAYS"
+    },
+    "prompts": [
+      {
+        "id": "Elicit.Slot.ChatIntent.query",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "何について知りたいですか？"
+          }
+        ]
+      }
+    ]
+  }
+}
