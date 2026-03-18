@@ -4,20 +4,42 @@
  */
 
 const Alexa = require('ask-sdk-core');
-const { ClaudeClient } = require('./claude-client');
+const { ClaudeClient, MODELS } = require('./claude-client');
+const { ConversationStore } = require('./persistence');
+const {
+  PRODUCT_ID,
+  FREE_DAILY_LIMIT,
+  getSubscriptionStatus,
+  getBuyDirective,
+  getCancelDirective,
+  getUpsellDirective,
+  getUsageCount,
+  incrementUsage
+} = require('./isp-helper');
 
 // 環境変数からAPIキーを取得
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const BRAVE_SEARCH_API_KEY = process.env.BRAVE_SEARCH_API_KEY;
 
 // ClaudeClientインスタンス（リクエストごとに状態をリストアする）
 let claudeClient = null;
+
+// DynamoDB永続化（環境変数でテーブル名が設定されている場合のみ有効）
+const conversationStore = process.env.DYNAMODB_TABLE_NAME ? new ConversationStore() : null;
+
+/**
+ * ユーザーIDを取得
+ */
+function getUserId(handlerInput) {
+  return handlerInput.requestEnvelope.context.System.user.userId;
+}
 
 /**
  * ClaudeClientを取得または初期化
  */
 function getClaudeClient(sessionAttributes) {
   if (!claudeClient) {
-    claudeClient = new ClaudeClient(ANTHROPIC_API_KEY);
+    claudeClient = new ClaudeClient(ANTHROPIC_API_KEY, BRAVE_SEARCH_API_KEY);
   }
 
   // セッション属性から状態を復元
@@ -64,14 +86,32 @@ const LaunchRequestHandler = {
   canHandle(handlerInput) {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
   },
-  handle(handlerInput) {
-    const speakOutput = 'こんにちは。クロードです。何でも聞いてください。';
-
-    // セッション属性を初期化
+  async handle(handlerInput) {
     const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
-    sessionAttributes.conversationHistory = [];
-    sessionAttributes.currentModel = null;
-    sessionAttributes.currentPersona = 'default';
+    let speakOutput = 'こんにちは。クロードです。何でも聞いてください。';
+
+    // DynamoDBから会話履歴を復元（有効な場合）
+    if (conversationStore) {
+      const userId = getUserId(handlerInput);
+      const savedState = await conversationStore.getConversation(userId);
+
+      if (savedState.conversationHistory.length > 0) {
+        sessionAttributes.conversationHistory = savedState.conversationHistory;
+        sessionAttributes.currentPersona = savedState.currentPersona;
+        sessionAttributes.currentModel = savedState.currentModel;
+        speakOutput = 'お帰りなさい。前回の会話を覚えています。続きをどうぞ。';
+      } else {
+        sessionAttributes.conversationHistory = [];
+        sessionAttributes.currentPersona = 'default';
+        sessionAttributes.currentModel = null;
+      }
+    } else {
+      // セッション属性を初期化
+      sessionAttributes.conversationHistory = [];
+      sessionAttributes.currentModel = null;
+      sessionAttributes.currentPersona = 'default';
+    }
+
     handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
 
     return handlerInput.responseBuilder
@@ -105,6 +145,33 @@ const ChatIntentHandler = {
         .getResponse();
     }
 
+    // サブスクリプション状態と利用回数をチェック
+    const { entitled, product } = await getSubscriptionStatus(handlerInput);
+    const usageCount = getUsageCount(sessionAttributes);
+
+    // 無料ユーザーで制限超過の場合
+    if (!entitled && usageCount >= FREE_DAILY_LIMIT) {
+      if (product) {
+        // アップセルを提案
+        return handlerInput.responseBuilder
+          .addDirective(getUpsellDirective(
+            product.productId,
+            `本日の無料枠${FREE_DAILY_LIMIT}回を使い切りました。プレミアムプランに登録すると無制限でお使いいただけます。`
+          ))
+          .getResponse();
+      }
+      return handlerInput.responseBuilder
+        .speak(`申し訳ありません。本日の無料枠${FREE_DAILY_LIMIT}回を使い切りました。明日またお試しください。`)
+        .withShouldEndSession(true)
+        .getResponse();
+    }
+
+    // 無料ユーザーはHaikuモデルに強制
+    if (!entitled && client.currentModel !== MODELS.HAIKU) {
+      client.currentModel = MODELS.HAIKU;
+      sessionAttributes.currentModel = MODELS.HAIKU;
+    }
+
     // Progressive Responseを送信（考え中...）
     await sendProgressiveResponse(handlerInput, '考え中です...');
 
@@ -116,11 +183,17 @@ const ChatIntentHandler = {
       const response = await client.chat(query, conversationHistory);
 
       // 会話履歴を更新（最大10ターン = 20メッセージ）
+      // cardにはフルコンテキストが含まれるのでそちらを保存
       conversationHistory.push({ role: 'user', content: query });
-      conversationHistory.push({ role: 'assistant', content: response.speech });
+      conversationHistory.push({ role: 'assistant', content: response.card });
 
       if (conversationHistory.length > 20) {
         conversationHistory.splice(0, 2);
+      }
+
+      // 利用回数をインクリメント（無料ユーザーのみカウント）
+      if (!entitled) {
+        incrementUsage(sessionAttributes);
       }
 
       // セッション属性を保存
@@ -128,6 +201,17 @@ const ChatIntentHandler = {
       sessionAttributes.currentModel = client.currentModel;
       sessionAttributes.currentPersona = client.currentPersona;
       handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
+
+      // DynamoDBに保存（有効な場合）
+      if (conversationStore) {
+        const userId = getUserId(handlerInput);
+        await conversationStore.saveConversation(
+          userId,
+          conversationHistory,
+          client.currentPersona,
+          client.currentModel
+        );
+      }
 
       return handlerInput.responseBuilder
         .speak(response.speech)
@@ -203,14 +287,28 @@ const SwitchModelIntentHandler = {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
       && Alexa.getIntentName(handlerInput.requestEnvelope) === 'SwitchModelIntent';
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
     const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
     const client = getClaudeClient(sessionAttributes);
 
     const model = Alexa.getSlotValue(handlerInput.requestEnvelope, 'model');
 
     if (model) {
-      client.switchModel(model);
+      // 課金状態を確認
+      const { entitled } = await getSubscriptionStatus(handlerInput);
+
+      const result = client.switchModel(model, entitled);
+
+      if (!result.success && result.reason === 'premium_required') {
+        // 無料ユーザーがSonnetを選択しようとした
+        const speakOutput = 'Sonnetモデルはプレミアムプラン限定です。プレミアムプランに登録しますか？';
+        return handlerInput.responseBuilder
+          .speak(speakOutput)
+          .reprompt('プレミアムプランに登録しますか？')
+          .withSimpleCard('モデル切替', 'Sonnetモデルはプレミアムプラン限定です。')
+          .getResponse();
+      }
+
       sessionAttributes.currentModel = client.currentModel;
       handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
 
@@ -224,9 +322,172 @@ const SwitchModelIntentHandler = {
         .getResponse();
     }
 
+    // 無料ユーザーにはSonnetの選択肢を見せない
+    const { entitled } = await getSubscriptionStatus(handlerInput);
+    const options = entitled
+      ? 'ハイクまたはソネットから選べます。'
+      : 'ハイクモデルをご利用いただけます。ソネットはプレミアムプラン限定です。';
+
     return handlerInput.responseBuilder
-      .speak('モデル名を指定してください。ハイクまたはソネットから選べます。')
+      .speak(`モデル名を指定してください。${options}`)
       .reprompt('どのモデルにしますか？')
+      .getResponse();
+  }
+};
+
+/**
+ * ClearHistoryIntent Handler
+ * 会話履歴をクリア
+ */
+const ClearHistoryIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+      && Alexa.getIntentName(handlerInput.requestEnvelope) === 'ClearHistoryIntent';
+  },
+  async handle(handlerInput) {
+    const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
+
+    // セッション属性をクリア
+    sessionAttributes.conversationHistory = [];
+    handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
+
+    // DynamoDBからも削除（有効な場合）
+    if (conversationStore) {
+      const userId = getUserId(handlerInput);
+      await conversationStore.clearConversation(userId);
+    }
+
+    return handlerInput.responseBuilder
+      .speak('会話履歴をクリアしました。新しい会話を始めましょう。')
+      .reprompt('何か質問はありますか？')
+      .withSimpleCard('履歴クリア', '会話履歴をクリアしました')
+      .getResponse();
+  }
+};
+
+/**
+ * BuySubscription Intent Handler
+ * プレミアム購入フロー開始
+ */
+const BuySubscriptionIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+      && Alexa.getIntentName(handlerInput.requestEnvelope) === 'BuySubscriptionIntent';
+  },
+  async handle(handlerInput) {
+    const { entitled, product } = await getSubscriptionStatus(handlerInput);
+
+    if (entitled) {
+      return handlerInput.responseBuilder
+        .speak('すでにプレミアムプランに登録されています。無制限でお使いいただけます。')
+        .reprompt('何か質問はありますか？')
+        .getResponse();
+    }
+
+    if (!product) {
+      return handlerInput.responseBuilder
+        .speak('申し訳ありません。プレミアムプランの情報を取得できませんでした。')
+        .reprompt('何か質問はありますか？')
+        .getResponse();
+    }
+
+    return handlerInput.responseBuilder
+      .addDirective(getBuyDirective(product.productId))
+      .getResponse();
+  }
+};
+
+/**
+ * CancelSubscription Intent Handler
+ * プレミアム解約フロー開始
+ */
+const CancelSubscriptionIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+      && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CancelSubscriptionIntent';
+  },
+  async handle(handlerInput) {
+    const { entitled, product } = await getSubscriptionStatus(handlerInput);
+
+    if (!entitled) {
+      return handlerInput.responseBuilder
+        .speak('プレミアムプランに登録されていません。')
+        .reprompt('何か質問はありますか？')
+        .getResponse();
+    }
+
+    return handlerInput.responseBuilder
+      .addDirective(getCancelDirective(product.productId))
+      .getResponse();
+  }
+};
+
+/**
+ * CheckSubscription Intent Handler
+ * サブスクリプション状態確認
+ */
+const CheckSubscriptionIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+      && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckSubscriptionIntent';
+  },
+  async handle(handlerInput) {
+    const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
+    const { entitled } = await getSubscriptionStatus(handlerInput);
+
+    if (entitled) {
+      return handlerInput.responseBuilder
+        .speak('プレミアムプランに登録中です。無制限でお使いいただけます。')
+        .reprompt('何か質問はありますか？')
+        .getResponse();
+    }
+
+    const usageCount = getUsageCount(sessionAttributes);
+    const remaining = Math.max(0, FREE_DAILY_LIMIT - usageCount);
+
+    return handlerInput.responseBuilder
+      .speak(`無料プランをご利用中です。本日の残り回数は${remaining}回です。プレミアムプランに登録すると無制限でお使いいただけます。`)
+      .reprompt('プレミアムに登録しますか？')
+      .getResponse();
+  }
+};
+
+/**
+ * Connections Response Handler
+ * ISP購入/キャンセルフローからの戻り処理
+ */
+const ConnectionsResponseHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'Connections.Response';
+  },
+  handle(handlerInput) {
+    const { payload, status } = handlerInput.requestEnvelope.request;
+    const purchaseResult = payload.purchaseResult;
+
+    console.log(`Connections.Response: status=${status.code}, result=${purchaseResult}`);
+
+    let speakOutput;
+
+    switch (purchaseResult) {
+      case 'ACCEPTED':
+        speakOutput = 'プレミアムプランへの登録ありがとうございます。これで無制限にClaudeと会話できます。何か質問はありますか？';
+        break;
+      case 'DECLINED':
+        speakOutput = 'わかりました。無料プランで引き続きお使いいただけます。何か質問はありますか？';
+        break;
+      case 'ALREADY_PURCHASED':
+        speakOutput = 'すでにプレミアムプランに登録されています。何か質問はありますか？';
+        break;
+      case 'NOT_ENTITLED':
+        speakOutput = 'プレミアムプランが解約されました。無料プランで引き続きお使いいただけます。';
+        break;
+      default:
+        speakOutput = '処理が完了しました。何か質問はありますか？';
+    }
+
+    return handlerInput.responseBuilder
+      .speak(speakOutput)
+      .reprompt('何か質問はありますか？')
       .getResponse();
   }
 };
@@ -242,6 +503,8 @@ const HelpIntentHandler = {
   handle(handlerInput) {
     const speakOutput = 'このスキルでは、Claudeと日本語で会話できます。' +
       '質問を自由に話しかけてください。' +
+      `無料プランでは1日${FREE_DAILY_LIMIT}回まで、プレミアムプランでは無制限でお使いいただけます。` +
+      '「プレミアムに登録」で購入、「残り回数」で確認できます。' +
       '終了するときは「おしまい」と言ってください。';
 
     return handlerInput.responseBuilder
@@ -279,7 +542,57 @@ const FallbackIntentHandler = {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
       && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.FallbackIntent';
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
+    console.log('=== FallbackIntent triggered ===');
+
+    const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
+    const client = getClaudeClient(sessionAttributes);
+    const conversationHistory = sessionAttributes.conversationHistory || [];
+
+    console.log('FallbackIntent - conversationHistory length:', conversationHistory.length);
+
+    // 会話履歴がある場合は、前の会話の続きとして処理
+    if (conversationHistory.length > 0) {
+      console.log('FallbackIntent - Continuing conversation with context');
+
+      // 直前のアシスタント応答を確認
+      const lastAssistantMsg = conversationHistory
+        .filter(m => m.role === 'assistant')
+        .pop();
+
+      try {
+        // Progressive Response
+        await sendProgressiveResponse(handlerInput, '考え中です...');
+
+        // 直前の応答に質問が含まれている場合は、それに対する応答として処理
+        const prompt = lastAssistantMsg && lastAssistantMsg.content.includes('？')
+          ? 'ユーザーが何か返答しましたが聞き取れませんでした。前の質問をもう一度別の言い方で聞いてください。'
+          : '前の会話を踏まえて、ユーザーが次に知りたそうなことを予測して、補足情報を提供してください。';
+
+        const response = await client.chat(prompt, conversationHistory);
+
+        // 会話履歴を更新
+        conversationHistory.push({ role: 'user', content: '(聞き取れませんでした)' });
+        conversationHistory.push({ role: 'assistant', content: response.card });
+
+        if (conversationHistory.length > 20) {
+          conversationHistory.splice(0, 2);
+        }
+
+        sessionAttributes.conversationHistory = conversationHistory;
+        handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
+
+        return handlerInput.responseBuilder
+          .speak(response.speech)
+          .reprompt('他に質問はありますか？')
+          .withSimpleCard('クロード', response.card)
+          .getResponse();
+      } catch (error) {
+        console.error('Fallback Chat Error:', error);
+      }
+    }
+
+    console.log('FallbackIntent - Using static fallback response');
     const speakOutput = 'すみません、よく分かりませんでした。もう一度お願いします。';
 
     return handlerInput.responseBuilder
@@ -368,9 +681,14 @@ const LoggingResponseInterceptor = {
 exports.handler = Alexa.SkillBuilders.custom()
   .addRequestHandlers(
     LaunchRequestHandler,
+    ConnectionsResponseHandler,  // ISP応答ハンドラー（優先度高）
+    BuySubscriptionIntentHandler,
+    CancelSubscriptionIntentHandler,
+    CheckSubscriptionIntentHandler,
     ChatIntentHandler,
     SwitchPersonaIntentHandler,
     SwitchModelIntentHandler,
+    ClearHistoryIntentHandler,
     HelpIntentHandler,
     CancelAndStopIntentHandler,
     FallbackIntentHandler,

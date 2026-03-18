@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "type": "SUBSCRIPTION",
+  "referenceName": "claude_premium",
+  "publishingInformation": {
+    "locales": {
+      "ja-JP": {
+        "name": "プレミアムプラン",
+        "smallIconUri": "https://example.com/icon_108.png",
+        "largeIconUri": "https://example.com/icon_512.png",
+        "summary": "Claude AIとの無制限会話",
+        "description": "プレミアムプランでは、Claude AIとの会話回数制限が解除され、高度な機能をお楽しみいただけます。Web検索機能や会話履歴の保存も含まれます。",
+        "customProductPrompts": {
+          "purchasePromptDescription": "プレミアムプランを購入すると、会話回数の制限なくClaudeとお話しいただけます。",
+          "boughtCardDescription": "プレミアムプランをご利用いただきありがとうございます。"
+        }
+      }
+    },
+    "distributionCountries": ["JP"]
+  },
+  "privacyAndCompliance": {
+    "locales": {
+      "ja-JP": {}
+    }
+  },
+  "subscriptionInformation": {
+    "subscriptionPaymentFrequency": "MONTHLY",
+    "subscriptionTrialPeriodDays": 7
+  },
+  "testingInstructions": "開発テスト用。「プレミアムに登録」と発話してテスト購入フローを確認できます。"
+}

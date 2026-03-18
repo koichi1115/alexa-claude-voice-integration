@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "クロード",
+      "invocationName": "クロ先生",
       "intents": [
         {
           "name": "ChatIntent",
@@ -15,17 +15,58 @@
             "{query} について教えて",
             "{query} を教えて",
             "{query} って何",
+            "{query} って誰",
             "{query} とは",
             "{query} はどう",
+            "{query} は何",
+            "{query} は誰",
             "{query} は",
             "{query} してください",
             "{query} お願い",
             "{query} について",
             "{query} 知りたい",
+            "{query} ってなに",
+            "{query} ってだれ",
+            "{query} なんだけど",
+            "{query} どう思う",
+            "{query} かな",
+            "{query} でしょうか",
+            "{query} ですか",
+            "{query} だよね",
+            "{query} じゃない",
+            "{query} いる",
+            "{query} ある",
+            "{query} できる",
+            "{query} したい",
+            "{query} ほしい",
+            "{query} 書いてる人",
+            "{query} 作ってる人",
+            "{query} やってる人",
+            "{query} している人",
+            "{query} の人",
+            "{query} 系の",
+            "ねえ {query}",
+            "ねぇ {query}",
             "教えて {query}",
             "質問 {query}",
             "聞いて {query}",
-            "調べて {query}"
+            "聞きたい {query}",
+            "調べて {query}",
+            "知りたい {query}",
+            "答えて {query}",
+            "誰か {query}",
+            "何か {query}",
+            "どんな {query}",
+            "{query} への行き方",
+            "{query} まで",
+            "{query} から",
+            "{query} の行き方",
+            "{query} に行きたい",
+            "{query} どこ",
+            "{query} いつ",
+            "{query} 上映",
+            "{query} 公開",
+            "{query}"
           ]
         },
         {
@@ -56,6 +97,53 @@
             "{model} にして",
             "{model} モード",
             "{model} を使って"
+          ]
+        },
+        {
+          "name": "ClearHistoryIntent",
+          "slots": [],
+          "samples": [
+            "履歴をクリア",
+            "会話履歴をクリア",
+            "履歴を消して",
+            "会話をリセット",
+            "最初から",
+            "リセット"
+          ]
+        },
+        {
+          "name": "BuySubscriptionIntent",
+          "slots": [],
+          "samples": [
+            "プレミアムに登録",
+            "プレミアムを購入",
+            "サブスクリプションを購入",
+            "プレミアムプランに登録",
+            "課金する",
+            "アップグレード",
+            "プレミアムにする"
+          ]
+        },
+        {
+          "name": "CancelSubscriptionIntent",
+          "slots": [],
+          "samples": [
+            "プレミアムを解約",
+            "サブスクリプションを解約",
+            "プレミアムをキャンセル",
+            "解約する",
+            "キャンセル"
+          ]
+        },
+        {
+          "name": "CheckSubscriptionIntent",
+          "slots": [],
+          "samples": [
+            "プレミアムの状態",
+            "サブスクリプションの確認",
+            "プレミアム確認",
+            "契約状況",
+            "残り回数"
           ]
         },
         {
@@ -166,7 +254,7 @@
           ]
         }
       ],
-      "delegationStrategy": "ALWAYS"
+      "delegationStrategy": "SKILL_RESPONSE"
     },
     "prompts": [
       {

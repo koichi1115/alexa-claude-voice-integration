@@ -5,22 +5,22 @@
         "ja-JP": {
           "summary": "Anthropic Claudeと日本語で音声会話できるAlexaスキル",
           "examplePhrases": [
-            "アレクサ、クロードを開いて",
+            "アレクサ、クロ先生を開いて",
             "今日の天気を教えて",
             "おしまい"
           ],
           "keywords": [
-            "claude",
             "AI",
+            "チャット",
             "会話",
             "アシスタント"
           ],
-          "name": "クロード",
-          "description": "Amazon AlexaデバイスからAnthropic Claudeと自然な日本語会話ができるカスタムスキルです。質問に答えたり、会話を楽しんだりできます。"
+          "name": "クロ先生",
+          "description": "Amazon AlexaデバイスからAIと自然な日本語会話ができるカスタムスキルです。質問に答えたり、会話を楽しんだりできます。"
         }
       },
       "isAvailableWorldwide": false,
-      "testingInstructions": "開発者テストモードで使用。「アレクサ、クロードを開いて」でスキルを起動し、任意の質問をしてください。",
+      "testingInstructions": "開発者テストモードで使用。「アレクサ、クロ先生を開いて」でスキルを起動し、任意の質問をしてください。",
       "category": "EDUCATION_AND_REFERENCE",
       "distributionCountries": [
         "JP"
@@ -34,11 +34,11 @@
     "manifestVersion": "1.0",
     "permissions": [],
     "privacyAndCompliance": {
-      "allowsPurchases": false,
+      "allowsPurchases": true,
       "locales": {
         "ja-JP": {
-          "privacyPolicyUrl": "",
-          "termsOfUseUrl": ""
+          "privacyPolicyUrl": "https://vercel-portfolio-site-koichi1115s-projects.vercel.app/legal/claude-alexa/privacy",
+          "termsOfUseUrl": "https://vercel-portfolio-site-koichi1115s-projects.vercel.app/legal/claude-alexa/terms"
         }
       },
       "containsAds": false,
