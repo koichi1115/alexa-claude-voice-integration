@@ -65,8 +65,7 @@
             "{query} どこ",
             "{query} いつ",
             "{query} 上映",
-            "{query} 公開",
-            "{query}"
+            "{query} 公開"
           ]
         },
         {
@@ -150,10 +149,6 @@
           "name": "CreateReminderIntent",
           "slots": [
             {
-              "name": "reminderText",
-              "type": "AMAZON.SearchQuery"
-            },
-            {
               "name": "reminderTime",
               "type": "AMAZON.TIME"
             },
@@ -163,16 +158,16 @@
             }
           ],
           "samples": [
-            "{reminderTime} に {reminderText} をリマインドして",
-            "{reminderTime} に {reminderText} を通知して",
-            "{reminderTime} に {reminderText} を教えて",
-            "{reminderDate} の {reminderTime} に {reminderText} をリマインドして",
-            "{reminderDate} {reminderTime} に {reminderText} をリマインダー登録",
-            "{reminderText} を {reminderTime} にリマインドして",
-            "{reminderText} を {reminderDate} の {reminderTime} に通知",
-            "{reminderTime} にリマインダー {reminderText}",
-            "リマインダー {reminderText} {reminderTime}",
-            "リマインダーを設定 {reminderText} {reminderTime}"
+            "{reminderTime} にリマインドして",
+            "{reminderTime} に通知して",
+            "{reminderTime} にリマインダー",
+            "{reminderDate} の {reminderTime} にリマインドして",
+            "{reminderDate} {reminderTime} にリマインダー設定",
+            "リマインダーを設定して",
+            "リマインダー登録",
+            "リマインダーを作成",
+            "{reminderTime} に教えて",
+            "{reminderDate} にリマインド"
           ]
         },
         {

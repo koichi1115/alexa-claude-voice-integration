@@ -411,6 +411,11 @@ const ClearHistoryIntentHandler = {
  * CreateReminder Intent Handler
  * リマインダー作成
  */
+/**
+ * CreateReminderIntent Handler
+ * リマインダーを作成（時間と日付のみ受け取り、内容はデフォルト）
+ * 注意: AMAZON.SearchQueryは他のスロットと併用不可のため、内容は固定
+ */
 const CreateReminderIntentHandler = {
   canHandle(handlerInput) {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -418,7 +423,7 @@ const CreateReminderIntentHandler = {
   },
   async handle(handlerInput) {
     const slots = handlerInput.requestEnvelope.request.intent.slots;
-    const reminderText = slots?.reminderText?.value || 'リマインダー';
+    const reminderText = 'クロ先生からのリマインダー'; // 固定テキスト
     const reminderTime = slots?.reminderTime?.value;
     const reminderDate = slots?.reminderDate?.value;
 
