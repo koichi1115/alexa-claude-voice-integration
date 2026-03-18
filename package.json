@@ -19,5 +19,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "canvas": "^3.2.1"
   }
 }
