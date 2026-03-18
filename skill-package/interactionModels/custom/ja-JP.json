@@ -147,6 +147,35 @@
           ]
         },
         {
+          "name": "CreateReminderIntent",
+          "slots": [
+            {
+              "name": "reminderText",
+              "type": "AMAZON.SearchQuery"
+            },
+            {
+              "name": "reminderTime",
+              "type": "AMAZON.TIME"
+            },
+            {
+              "name": "reminderDate",
+              "type": "AMAZON.DATE"
+            }
+          ],
+          "samples": [
+            "{reminderTime} に {reminderText} をリマインドして",
+            "{reminderTime} に {reminderText} を通知して",
+            "{reminderTime} に {reminderText} を教えて",
+            "{reminderDate} の {reminderTime} に {reminderText} をリマインドして",
+            "{reminderDate} {reminderTime} に {reminderText} をリマインダー登録",
+            "{reminderText} を {reminderTime} にリマインドして",
+            "{reminderText} を {reminderDate} の {reminderTime} に通知",
+            "{reminderTime} にリマインダー {reminderText}",
+            "リマインダー {reminderText} {reminderTime}",
+            "リマインダーを設定 {reminderText} {reminderTime}"
+          ]
+        },
+        {
           "name": "AMAZON.HelpIntent",
           "samples": []
         },

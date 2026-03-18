@@ -16,6 +16,20 @@ const {
   getUsageCount,
   incrementUsage
 } = require('./isp-helper');
+const {
+  supportsAPL,
+  createChatResponseDirective,
+  createWelcomeDirective
+} = require('./apl-helper');
+const {
+  getSpeakerInfo,
+  getPersonalizedGreeting
+} = require('./personalization-helper');
+const {
+  createReminder,
+  isReminderRequest,
+  extractReminderInfo
+} = require('./reminder-helper');
 
 // 環境変数からAPIキーを取得
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -88,7 +102,15 @@ const LaunchRequestHandler = {
   },
   async handle(handlerInput) {
     const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
-    let speakOutput = 'こんにちは。クロードです。何でも聞いてください。';
+
+    // パーソナライズ：話者情報を取得
+    const speakerInfo = await getSpeakerInfo(handlerInput);
+    sessionAttributes.speakerName = speakerInfo.name;
+    sessionAttributes.personId = speakerInfo.personId;
+
+    // パーソナライズされた挨拶を生成
+    const greeting = getPersonalizedGreeting(speakerInfo);
+    let speakOutput = `${greeting} クロ先生です。何でも聞いてください。`;
 
     // DynamoDBから会話履歴を復元（有効な場合）
     if (conversationStore) {
@@ -99,7 +121,7 @@ const LaunchRequestHandler = {
         sessionAttributes.conversationHistory = savedState.conversationHistory;
         sessionAttributes.currentPersona = savedState.currentPersona;
         sessionAttributes.currentModel = savedState.currentModel;
-        speakOutput = 'お帰りなさい。前回の会話を覚えています。続きをどうぞ。';
+        speakOutput = `${greeting} 前回の会話を覚えています。続きをどうぞ。`;
       } else {
         sessionAttributes.conversationHistory = [];
         sessionAttributes.currentPersona = 'default';
@@ -114,11 +136,19 @@ const LaunchRequestHandler = {
 
     handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
 
-    return handlerInput.responseBuilder
+    // レスポンスを構築
+    const responseBuilder = handlerInput.responseBuilder
       .speak(speakOutput)
-      .reprompt('何か質問はありますか？')
-      .withSimpleCard('クロード', speakOutput)
-      .getResponse();
+      .reprompt('何か質問はありますか？');
+
+    // APL対応デバイスの場合、ウェルカム画面を表示
+    if (supportsAPL(handlerInput)) {
+      responseBuilder.addDirective(createWelcomeDirective(speakerInfo.name));
+    } else {
+      responseBuilder.withSimpleCard('クロ先生', speakOutput);
+    }
+
+    return responseBuilder.getResponse();
   }
 };
 
@@ -213,11 +243,23 @@ const ChatIntentHandler = {
         );
       }
 
-      return handlerInput.responseBuilder
+      // レスポンスを構築
+      const responseBuilder = handlerInput.responseBuilder
         .speak(response.speech)
-        .reprompt('他に質問はありますか？')
-        .withSimpleCard('クロード', response.card)
-        .getResponse();
+        .reprompt('他に質問はありますか？');
+
+      // APL対応デバイスの場合、チャット画面を表示
+      if (supportsAPL(handlerInput)) {
+        responseBuilder.addDirective(createChatResponseDirective(
+          query,
+          response.card,
+          '他に質問はありますか？'
+        ));
+      } else {
+        responseBuilder.withSimpleCard('クロ先生', response.card);
+      }
+
+      return responseBuilder.getResponse();
 
     } catch (error) {
       console.error('Chat Error:', error);
@@ -362,6 +404,67 @@ const ClearHistoryIntentHandler = {
       .reprompt('何か質問はありますか？')
       .withSimpleCard('履歴クリア', '会話履歴をクリアしました')
       .getResponse();
+  }
+};
+
+/**
+ * CreateReminder Intent Handler
+ * リマインダー作成
+ */
+const CreateReminderIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+      && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CreateReminderIntent';
+  },
+  async handle(handlerInput) {
+    const slots = handlerInput.requestEnvelope.request.intent.slots;
+    const reminderText = slots?.reminderText?.value || 'リマインダー';
+    const reminderTime = slots?.reminderTime?.value;
+    const reminderDate = slots?.reminderDate?.value;
+
+    // 日時を構築
+    let scheduledTime = new Date();
+    if (reminderDate) {
+      const dateParts = reminderDate.split('-');
+      scheduledTime.setFullYear(parseInt(dateParts[0]));
+      scheduledTime.setMonth(parseInt(dateParts[1]) - 1);
+      scheduledTime.setDate(parseInt(dateParts[2]));
+    }
+    if (reminderTime) {
+      const timeParts = reminderTime.split(':');
+      scheduledTime.setHours(parseInt(timeParts[0]));
+      scheduledTime.setMinutes(parseInt(timeParts[1]));
+    }
+    scheduledTime.setSeconds(0);
+
+    // 過去の時刻なら翌日に
+    if (scheduledTime <= new Date()) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    // リマインダーを作成
+    const result = await createReminder(handlerInput, reminderText, scheduledTime);
+
+    if (result.success) {
+      return handlerInput.responseBuilder
+        .speak(result.message)
+        .reprompt('他に何かありますか？')
+        .withSimpleCard('リマインダー設定', result.message)
+        .getResponse();
+    } else {
+      // 権限が必要な場合
+      if (result.error === 'permission_required' || result.error === 'permission_denied') {
+        return handlerInput.responseBuilder
+          .speak(result.message)
+          .withAskForPermissionsConsentCard(['alexa::alerts:reminders:skill:readwrite'])
+          .getResponse();
+      }
+
+      return handlerInput.responseBuilder
+        .speak(result.message)
+        .reprompt('他に何かありますか？')
+        .getResponse();
+    }
   }
 };
 
@@ -685,6 +788,7 @@ exports.handler = Alexa.SkillBuilders.custom()
     BuySubscriptionIntentHandler,
     CancelSubscriptionIntentHandler,
     CheckSubscriptionIntentHandler,
+    CreateReminderIntentHandler,  // リマインダー作成
     ChatIntentHandler,
     SwitchPersonaIntentHandler,
     SwitchModelIntentHandler,

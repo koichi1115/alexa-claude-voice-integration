@@ -28,11 +28,70 @@
     },
     "apis": {
       "custom": {
-        "interfaces": []
+        "interfaces": [
+          {
+            "type": "ALEXA_PRESENTATION_APL",
+            "supportedViewports": [
+              {
+                "mode": "HUB",
+                "shape": "RECTANGLE",
+                "minWidth": 1024,
+                "maxWidth": 1280,
+                "minHeight": 600,
+                "maxHeight": 800
+              },
+              {
+                "mode": "HUB",
+                "shape": "RECTANGLE",
+                "minWidth": 960,
+                "maxWidth": 1280,
+                "minHeight": 480,
+                "maxHeight": 600
+              },
+              {
+                "mode": "HUB",
+                "shape": "ROUND",
+                "minWidth": 480,
+                "maxWidth": 480,
+                "minHeight": 480,
+                "maxHeight": 480
+              },
+              {
+                "mode": "TV",
+                "shape": "RECTANGLE",
+                "minWidth": 960,
+                "maxWidth": 1920,
+                "minHeight": 540,
+                "maxHeight": 1080
+              },
+              {
+                "mode": "MOBILE",
+                "shape": "RECTANGLE",
+                "minWidth": 320,
+                "maxWidth": 600,
+                "minHeight": 480,
+                "maxHeight": 1000
+              }
+            ]
+          }
+        ]
       }
     },
     "manifestVersion": "1.0",
-    "permissions": [],
+    "permissions": [
+      {
+        "name": "alexa::alerts:reminders:skill:readwrite"
+      },
+      {
+        "name": "alexa::person_id:read"
+      },
+      {
+        "name": "alexa::profile:given_name:read"
+      },
+      {
+        "name": "alexa::profile:name:read"
+      }
+    ],
     "privacyAndCompliance": {
       "allowsPurchases": true,
       "locales": {
@@ -44,7 +103,7 @@
       "containsAds": false,
       "isExportCompliant": true,
       "isChildDirected": false,
-      "usesPersonalInfo": false
+      "usesPersonalInfo": true
     }
   }
 }
